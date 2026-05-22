@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_install:
+	dh_install
+	mkdir -p debian/clipmanx/usr/share/applications
+	mkdir -p debian/clipmanx/usr/share/pixmaps
+
+	# Install desktop entry
+	install -m 644 clipmanx.desktop debian/clipmanx/usr/share/applications/
+
+	# Install app logo for application menu
+	install -m 644 src/clipmanx/assets/logo.png debian/clipmanx/usr/share/pixmaps/clipmanx.png

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Clipmanx
+Comment=Lightweight clipboard manager
+Exec=clipmanx
+Icon=/usr/share/pixmaps/clipmanx.png
+Categories=Utility;
+StartupNotify=true
+NoDisplay=false
+Terminal=false
+X-GNOME-Autostart-enabled=true

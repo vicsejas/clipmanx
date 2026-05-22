@@ -3,12 +3,47 @@ import gi
 gi.require_version("Gtk", "3.0")
 
 from gi.repository import Gtk
+from pathlib import Path
 
 from .clipboard import ClipboardMonitor
 from .history import History
 from .settings import Settings
 
-APP_INDICATOR_ICON = "edit-paste"
+FALLBACK_ICON_NAME = "edit-paste"
+
+
+def _create_theme_adapted_icon(icon_theme: str) -> Gtk.StatusIcon:
+    """Create status icon based on theme setting.
+
+    Icon is from Lucide (https://lucide.dev) under MIT license.
+
+    Args:
+        icon_theme: "auto", "light", or "dark"
+    """
+    assets_dir = Path(__file__).parent / "assets"
+    fallback = Gtk.StatusIcon.new_from_icon_name(FALLBACK_ICON_NAME)
+
+    if icon_theme == "auto":
+        gtk_settings = Gtk.Settings.get_default()
+        if gtk_settings is None:
+            use_dark = False
+        else:
+            theme_name = gtk_settings.get_property("gtk-theme-name") or ""
+            prefer_dark = gtk_settings.get_property("gtk-application-prefer-dark-theme")
+            use_dark = prefer_dark or "dark" in theme_name.lower()
+    else:
+        use_dark = icon_theme == "dark"
+
+    icon_file = "icon-white.svg" if use_dark else "icon-black.svg"
+    icon_path = assets_dir / icon_file
+
+    if not icon_path.exists():
+        return fallback
+
+    try:
+        return Gtk.StatusIcon.new_from_file(str(icon_path))
+    except Exception:
+        return fallback
 
 
 def truncate(text: str, max_len: int = 60) -> str:
@@ -18,22 +53,29 @@ def truncate(text: str, max_len: int = 60) -> str:
     return text or "(empty)"
 
 
-class ClipmanApp:
+class ClipmanxApp:
     def __init__(self):
         self.settings = Settings()
         self.history = History(max_items=self.settings.max_items)
         self._settings_window = None
-        self.tray = Gtk.StatusIcon.new_from_icon_name(APP_INDICATOR_ICON)
-        self.tray.set_tooltip_text("Clipman")
-        self.tray.set_visible(True)
-        self.tray.connect("popup-menu", self._on_popup_menu)
-        self.tray.connect("activate", lambda icon: self._on_popup_menu(icon, 0, Gtk.get_current_event_time()))
+        self.tray = None
+        self._setup_tray(self.settings.icon_theme)
 
         self.monitor = ClipboardMonitor(on_change=self._on_clipboard_change, settings=self.settings)
 
         existing = self.monitor.get_text()
         if existing:
             self.history.add(existing)
+
+    def _setup_tray(self, theme: str):
+        """Create and configure system tray icon with theme-aware styling."""
+        if self.tray is not None:
+            self.tray.set_visible(False)
+        self.tray = _create_theme_adapted_icon(theme)
+        self.tray.set_tooltip_text("Clipmanx")
+        self.tray.set_visible(True)
+        self.tray.connect("popup-menu", self._on_popup_menu)
+        self.tray.connect("activate", lambda icon: self._on_popup_menu(icon, 0, Gtk.get_current_event_time()))
 
     def _on_clipboard_change(self, text: str):
         if not text:
@@ -51,7 +93,7 @@ class ClipmanApp:
             self._settings_window.present()
             return
 
-        win = Gtk.Window(title="Clipman Settings")
+        win = Gtk.Window(title="Clipmanx Settings")
         win.set_default_size(360, 180)
         win.set_border_width(12)
         win.connect("destroy", self._on_settings_closed)
@@ -84,6 +126,18 @@ class ClipmanApp:
         hbox.pack_start(spin, False, False, 0)
         box.pack_start(hbox, False, False, 0)
 
+        theme_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        theme_label = Gtk.Label(label="Icon theme:")
+        theme_hbox.pack_start(theme_label, False, False, 0)
+        theme_combo = Gtk.ComboBoxText()
+        theme_combo.append("auto", "Auto Detect")
+        theme_combo.append("light", "Light")
+        theme_combo.append("dark", "Dark")
+        theme_combo.set_active_id(self.settings.icon_theme)
+        theme_combo.connect("changed", self._on_icon_theme_changed)
+        theme_hbox.pack_start(theme_combo, False, False, 0)
+        box.pack_start(theme_hbox, False, False, 0)
+
         self._settings_window = win
         win.show_all()
 
@@ -93,6 +147,13 @@ class ClipmanApp:
     def _on_max_items_changed(self, value: int):
         self.settings.max_items = value
         self.history.max_items = value
+
+    def _on_icon_theme_changed(self, combo):
+        """Update tray icon when user changes theme preference in settings."""
+        theme = combo.get_active_id()
+        if theme:
+            self.settings.icon_theme = theme
+            self._setup_tray(theme)
 
     def _quit(self, _item=None):
         Gtk.main_quit()

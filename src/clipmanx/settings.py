@@ -3,13 +3,14 @@ import os
 from pathlib import Path
 
 XDG_CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-CONFIG_DIR = XDG_CONFIG_HOME / "clipman"
+CONFIG_DIR = XDG_CONFIG_HOME / "clipmanx"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 
 DEFAULTS = {
     "capture_clipboard": True,
     "capture_primary": True,
     "max_items": 50,
+    "icon_theme": "auto",
 }
 
 
@@ -58,3 +59,13 @@ class Settings:
     def max_items(self, value: int):
         self._values["max_items"] = max(1, int(value))
         self._save()
+
+    @property
+    def icon_theme(self) -> str:
+        return self._values["icon_theme"]
+
+    @icon_theme.setter
+    def icon_theme(self, value: str):
+        if value in ("auto", "light", "dark"):
+            self._values["icon_theme"] = value
+            self._save()

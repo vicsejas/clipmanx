@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 XDG_DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-DATA_DIR = XDG_DATA_HOME / "clipman"
+DATA_DIR = XDG_DATA_HOME / "clipmanx"
 DATA_FILE = DATA_DIR / "history.json"
 
 

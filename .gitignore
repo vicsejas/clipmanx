@@ -3,3 +3,20 @@ __pycache__/
 *.pyc
 dist/
 *.egg-info/
+
+# Build artifacts
+build/
+*.deb
+*.changes
+*.buildinfo
+debian/clipmanx/
+.debhelper*
+debhelper-build-stamp
+debian/files
+debian/*.substvars
+debian/*.debhelper*
+debian/*.postinst.debhelper
+debian/*.prerm.debhelper
+debian/*.log
+.pybuild/
+*.whl

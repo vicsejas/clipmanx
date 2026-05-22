@@ -4,12 +4,12 @@ gi.require_version("Gtk", "3.0")
 
 from gi.repository import GLib
 
-from .app import ClipmanApp
+from .app import ClipmanxApp
 
 
 def main():
     GLib.unsetenv("GDK_BACKEND")
-    app = ClipmanApp()
+    app = ClipmanxApp()
     app.run()
 
 
