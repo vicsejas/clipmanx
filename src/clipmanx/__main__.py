@@ -16,28 +16,27 @@ def _get_socket_path():
     return os.path.join(runtime_dir, "clipmanx.sock")
 
 
-def _is_running():
-    """Check if another instance is already running."""
+def _activate_existing():
+    """Connect to existing instance and request activation."""
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(1)
         sock.connect(_get_socket_path())
+        sock.send(b"activate")
         sock.close()
         return True
-    except (FileNotFoundError, ConnectionRefusedError, OSError):
+    except Exception:
         return False
 
 
 def main():
     GLib.unsetenv("GDK_BACKEND")
 
-    if _is_running():
+    # Try to activate existing instance
+    if _activate_existing():
         sys.exit(0)
 
-    pid = os.fork()
-    if pid > 0:
-        sys.exit(0)
-
+    # No existing instance, create and run new one
     app = ClipmanxApp()
     app.run()
 
