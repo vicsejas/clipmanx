@@ -1,8 +1,11 @@
 import gi
+import os
+import socket
+import threading
 
 gi.require_version("Gtk", "3.0")
 
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 from pathlib import Path
 
 from .clipboard import ClipboardMonitor
@@ -49,7 +52,7 @@ def _create_theme_adapted_icon(icon_theme: str) -> Gtk.StatusIcon:
 def truncate(text: str, max_len: int = 60) -> str:
     text = text.replace("\n", " ").replace("\r", " ").strip()
     if len(text) > max_len:
-        return text[: max_len - 1] + "…"
+        return text[: max_len - 1] + "\u2026"
     return text or "(empty)"
 
 
@@ -59,13 +62,46 @@ class ClipmanxApp:
         self.history = History(max_items=self.settings.max_items)
         self._settings_window = None
         self.tray = None
+        self._socket_server = None
+
         self._setup_tray(self.settings.icon_theme)
 
         self.monitor = ClipboardMonitor(on_change=self._on_clipboard_change, settings=self.settings)
-
         existing = self.monitor.get_text()
         if existing:
             self.history.add(existing)
+
+    def _start_socket_server(self):
+        """Start socket server for single-instance detection."""
+        runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/tmp/user-{os.getuid()}")
+        socket_path = os.path.join(runtime_dir, "clipmanx.sock")
+
+        try:
+            if os.path.exists(socket_path):
+                os.remove(socket_path)
+
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.bind(socket_path)
+            sock.listen(1)
+
+            def accept_connections():
+                while True:
+                    try:
+                        conn, _ = sock.accept()
+                        conn.close()
+                        GLib.idle_add(
+                            lambda: self._on_popup_menu(
+                                self.tray, 0, Gtk.get_current_event_time()
+                            )
+                        )
+                    except Exception:
+                        break
+
+            thread = threading.Thread(target=accept_connections, daemon=True)
+            thread.start()
+            self._socket_server = sock
+        except Exception:
+            pass
 
     def _setup_tray(self, theme: str):
         """Create and configure system tray icon with theme-aware styling."""
@@ -75,7 +111,10 @@ class ClipmanxApp:
         self.tray.set_tooltip_text("Clipmanx")
         self.tray.set_visible(True)
         self.tray.connect("popup-menu", self._on_popup_menu)
-        self.tray.connect("activate", lambda icon: self._on_popup_menu(icon, 0, Gtk.get_current_event_time()))
+        self.tray.connect(
+            "activate",
+            lambda icon: self._on_popup_menu(icon, 0, Gtk.get_current_event_time()),
+        )
 
     def _on_clipboard_change(self, text: str):
         if not text:
@@ -165,7 +204,7 @@ class ClipmanxApp:
 
     def _build_menu(self) -> Gtk.Menu:
         menu = Gtk.Menu()
-        items = self.history.get_all()[:self.settings.max_items]
+        items = self.history.get_all()[: self.settings.max_items]
 
         if not items:
             item = Gtk.MenuItem(label="(no history)")
@@ -195,6 +234,7 @@ class ClipmanxApp:
         return menu
 
     def run(self):
+        self._start_socket_server()
         try:
             Gtk.main()
         except KeyboardInterrupt:

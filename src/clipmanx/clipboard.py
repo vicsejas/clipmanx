@@ -13,6 +13,7 @@ class ClipboardMonitor:
         self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.primary = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
         self._last_text = None
+        self._pending_timeout = None
 
         self.clipboard.connect("owner-change", self._on_owner_change)
         self.primary.connect("owner-change", self._on_owner_change)
@@ -28,12 +29,19 @@ class ClipboardMonitor:
         if not self._enabled_for(clipboard):
             return
         if event.reason == Gdk.OwnerChange.NEW_OWNER:
-            clipboard.request_text(self._on_text_received)
+            if self._pending_timeout:
+                GLib.source_remove(self._pending_timeout)
+            self._pending_timeout = GLib.timeout_add(50, lambda: self._request_text(clipboard))
         elif event.reason in (Gdk.OwnerChange.DESTROY, Gdk.OwnerChange.CLOSE) and self._last_text:
             # The selection owner exited (e.g. xclip finished after a pipe).
             # Re-claim the CLIPBOARD selection with the captured text so Ctrl+V
             # returns it instead of falling back to stale content (an old image).
             self.clipboard.set_text(self._last_text, -1)
+
+    def _request_text(self, clipboard):
+        self._pending_timeout = None
+        clipboard.request_text(self._on_text_received)
+        return False
 
     def _on_text_received(self, _clipboard, text):
         if text and text != self._last_text:
