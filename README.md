@@ -1,6 +1,8 @@
 # Clipmanx
 
-A lightweight clipboard manager for Linux Mint with GTK3 system tray integration.
+A lightweight clipboard manager for Linux Mint featuring GTK3 system tray integration.
+
+⚠️ **Note:** This project is in early development. Some features may be unstable or incomplete.
 
 ![Logo](src/clipmanx/assets/logo.png)
 
