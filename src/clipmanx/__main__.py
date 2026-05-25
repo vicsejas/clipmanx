@@ -1,13 +1,17 @@
-import gi
+import os
 import sys
 import socket
-import os
 
-gi.require_version("Gtk", "3.0")
+# Disable the at-spi accessibility bridge before GTK initializes. Harmless for a
+# clipboard manager and avoids a class of a11y/D-Bus stalls.
+os.environ.setdefault("NO_AT_BRIDGE", "1")
+os.environ.pop("GDK_BACKEND", None)
 
-from gi.repository import GLib
-
-from .app import ClipmanxApp
+# NOTE: gi / Gtk / GLib are intentionally NOT imported at module level. Importing
+# them starts GLib worker / GDBus background threads, and forking a multi-threaded
+# process leaves those threads' locks held forever in the child — the first widget
+# that touches that subsystem (e.g. Gtk.SpinButton) then deadlocks. We must fork
+# while still single-threaded and import GTK only afterwards, in the child.
 
 
 def _get_socket_path():
@@ -30,14 +34,28 @@ def _activate_existing():
 
 
 def main():
-    GLib.unsetenv("GDK_BACKEND")
+    debug = "--debug" in sys.argv
 
-    # Try to activate existing instance
     if _activate_existing():
+        if debug:
+            print("clipmanx: activating existing instance", file=sys.stderr)
         sys.exit(0)
 
-    # No existing instance, create and run new one
-    app = ClipmanxApp()
+    # Fork to background BEFORE importing GTK so the child starts single-threaded.
+    # Set CLIPMANX_NO_FORK=1 to stay in the foreground (debugging).
+    if not os.environ.get("CLIPMANX_NO_FORK"):
+        if os.fork() != 0:
+            sys.exit(0)
+        os.setsid()
+
+    # Heavy imports happen post-fork, in the clean (single-threaded) child.
+    from .logger import setup as debug_setup
+
+    debug_setup(debug)
+
+    from .app import ClipmanxApp
+
+    app = ClipmanxApp(debug=debug)
     app.run()
 
 

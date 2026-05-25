@@ -20,3 +20,7 @@ debian/*.prerm.debhelper
 debian/*.log
 .pybuild/
 *.whl
+
+# Debug artifacts
+log.txt
+crash.log

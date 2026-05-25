@@ -11,6 +11,7 @@ DEFAULTS = {
     "capture_primary": True,
     "max_items": 50,
     "icon_theme": "auto",
+    "tooltip_delay": 500,
 }
 
 
@@ -69,3 +70,12 @@ class Settings:
         if value in ("auto", "light", "dark"):
             self._values["icon_theme"] = value
             self._save()
+
+    @property
+    def tooltip_delay(self) -> int:
+        return self._values["tooltip_delay"]
+
+    @tooltip_delay.setter
+    def tooltip_delay(self, value: int):
+        self._values["tooltip_delay"] = max(0, int(value))
+        self._save()
