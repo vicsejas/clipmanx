@@ -116,8 +116,10 @@ class ClipmanxApp:
         self.tray = _create_theme_adapted_icon(theme)
         self.tray.set_tooltip_text("Clipmanx")
         self.tray.set_visible(True)
-        self.tray.connect("popup-menu", self._on_popup_menu)
+        # Both left-click (activate) and right-click (popup-menu) open the
+        # full-view popup — a single, consistent UI.
         self.tray.connect("activate", self._show_full_view)
+        self.tray.connect("popup-menu", lambda icon, _button, _time: self._show_full_view(icon))
         _dbg("_setup_tray: done")
 
     def _on_clipboard_change(self, text: str):
