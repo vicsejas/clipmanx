@@ -457,10 +457,38 @@ class ClipmanxApp:
         if not text:
             return
 
+        # --- Geometry first: decide WHERE and HOW WIDE before building anything.
+        display = Gdk.Display.get_default()
+        gdkwin = win.get_window()
+        monitor = (
+            display.get_monitor_at_window(gdkwin) if gdkwin else None
+        ) or display.get_primary_monitor()
+        geom = monitor.get_workarea()
+
+        win_x, win_y = win.get_position()
+        ww, _wh = win.get_size()
+
+        gap = 4
+        chrome_w = 18  # popup border + frame shadow + scrollbar
+        chrome_h = 6
+        max_h = geom.height - 8
+
+        # Available horizontal space on each side of the main window.
+        space_right = (geom.x + geom.width) - (win_x + ww) - gap
+        space_left = (win_x - geom.x) - gap
+        prefer_right = space_right >= space_left
+        side_space = max(space_right, space_left, 0)
+
+        # Pick a content width that *fits the chosen side*, so the popup can
+        # never overlap the main window. 460 is the visual maximum.
+        content_width = max(220, min(460, side_space - chrome_w))
+
+        # --- Build the popup with that locked width.
         pop = Gtk.Window(type=Gtk.WindowType.POPUP)
         pop.set_type_hint(Gdk.WindowTypeHint.TOOLTIP)
         pop.set_accept_focus(False)
         pop.set_focus_on_map(False)
+        pop.set_position(Gtk.WindowPosition.NONE)  # no WM auto-placement
         pop.set_border_width(1)
 
         frame = Gtk.Frame()
@@ -477,24 +505,12 @@ class ClipmanxApp:
         tv.set_bottom_margin(8)
         tv.get_buffer().set_text(text)
 
-        # Monitor work area sets the preview's max size.
-        display = Gdk.Display.get_default()
-        gdkwin = win.get_window()
-        monitor = (
-            display.get_monitor_at_window(gdkwin) if gdkwin else None
-        ) or display.get_primary_monitor()
-        geom = monitor.get_workarea()
-        width = min(460, geom.width // 2)
-        max_h = geom.height - 8
-
-        # Measure the wrapped text height at the fixed width with Pango. A
-        # ScrolledWindow's own natural-height guess ignores the wrap width, which
-        # is what made short text show a scrollbar and tall text fall short.
+        # Pango-measured wrapped text height at the locked width.
         layout = tv.create_pango_layout(text)
-        layout.set_width(max(1, width - 20) * Pango.SCALE)
+        layout.set_width(max(1, content_width - 20) * Pango.SCALE)
         layout.set_wrap(Pango.WrapMode.WORD_CHAR)
         _tw, th = layout.get_pixel_size()
-        text_height = th + 16 + 8  # top/bottom margins + small padding
+        text_height = th + 16 + 8  # top/bottom margins + padding
         fits = text_height <= max_h
         content_h = text_height if fits else max_h
 
@@ -503,34 +519,33 @@ class ClipmanxApp:
             Gtk.PolicyType.NEVER,
             Gtk.PolicyType.NEVER if fits else Gtk.PolicyType.AUTOMATIC,
         )
-        scroll.set_min_content_width(width)
-        scroll.set_max_content_width(width)
+        scroll.set_min_content_width(content_width)
+        scroll.set_max_content_width(content_width)
         scroll.set_min_content_height(content_h)
         scroll.set_max_content_height(content_h)
         scroll.add(tv)
         frame.add(scroll)
 
-        pop.show_all()
-
-        # Position beside the main window, aligned with the hovered row
-        win_x, win_y = win.get_position()
-        ww, _wh = win.get_size()
-        pw, ph = pop.get_size()
+        # --- Deterministic size + position BEFORE show. get_size() on an
+        # unrealized window returns the default (200x200), so we compute it.
+        pw = content_width + chrome_w
+        ph = content_h + chrome_h
 
         coords = row.translate_coordinates(win, 0, 0)
         row_y = coords[1] if coords else 0
 
-        x = win_x + ww + 4
-        if x + pw > geom.x + geom.width:
-            x = win_x - pw - 4
-        x = max(geom.x, x)
+        x = (win_x + ww + gap) if prefer_right else (win_x - pw - gap)
+        x = max(geom.x, min(x, geom.x + geom.width - pw))
 
         y = win_y + row_y
         if y + ph > geom.y + geom.height:
             y = geom.y + geom.height - ph
         y = max(geom.y, y)
 
+        pop.set_default_size(pw, ph)
         pop.move(x, y)
+        pop.show_all()
+
         self._row_preview = pop
         self._row_preview_text = text
 

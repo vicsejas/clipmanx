@@ -1,3 +1,14 @@
+clipmanx (0.1.2-1) unstable; urgency=low
+
+  * Fixed hover preview occupying the full screen and covering the list when
+    the clipboard entry was very tall (compute size from the larger free side
+    of the main window and move() before show_all so it appears in place)
+  * Fixed text selections leaking into the system CLIPBOARD: the re-claim on
+    owner close is now scoped to CLIPBOARD events and tracks the last CLIPBOARD
+    text separately from cross-source dedup state
+
+ -- Victor Sejas <vrsejas@gmail.com>  Wed, 03 Jun 2026 22:49:37 -0400
+
 clipmanx (0.1.1-1) unstable; urgency=low
 
   * Unified left- and right-click tray behaviour into a single full-view popup

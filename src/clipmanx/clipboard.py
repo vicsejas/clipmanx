@@ -14,7 +14,12 @@ class ClipboardMonitor:
         self.settings = settings
         self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.primary = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
+        # _last_text dedupes emissions across both selections.
+        # _last_clipboard_text is *only* the most recent CLIPBOARD content, used
+        # for re-claiming after the CLIPBOARD owner exits — must never carry
+        # PRIMARY content, or selecting text would leak into the clipboard.
         self._last_text = None
+        self._last_clipboard_text = None
         self._pending_timeout = None
 
         self.clipboard.connect("owner-change", self._on_owner_change)
@@ -38,29 +43,36 @@ class ClipboardMonitor:
             if self._pending_timeout:
                 GLib.source_remove(self._pending_timeout)
             self._pending_timeout = GLib.timeout_add(50, lambda: self._request_text(clipboard))
-        elif event.reason in (Gdk.OwnerChange.DESTROY, Gdk.OwnerChange.CLOSE) and self._last_text:
-            # The selection owner exited (e.g. xclip finished after a pipe).
-            # Re-claim the CLIPBOARD selection with the captured text so Ctrl+V
-            # returns it instead of falling back to stale content (an old image).
-            self.clipboard.set_text(self._last_text, -1)
+        elif event.reason in (Gdk.OwnerChange.DESTROY, Gdk.OwnerChange.CLOSE):
+            # Re-claim CLIPBOARD when its owner exits (e.g. xclip finishing a
+            # pipe) so Ctrl+V returns the captured text rather than stale
+            # content. Skip the PRIMARY case — doing this for PRIMARY would
+            # write every text selection into the system clipboard.
+            if clipboard is self.clipboard and self._last_clipboard_text:
+                self.clipboard.set_text(self._last_clipboard_text, -1)
 
     def _request_text(self, clipboard):
         self._pending_timeout = None
         clipboard.request_text(self._on_text_received)
         return False
 
-    def _on_text_received(self, _clipboard, text):
-        if text and text != self._last_text:
-            self._last_text = text
-            self.on_change(text)
+    def _on_text_received(self, clipboard, text):
+        if not text or text == self._last_text:
+            return
+        self._last_text = text
+        if clipboard is self.clipboard:
+            self._last_clipboard_text = text
+        self.on_change(text)
 
     def copy(self, text):
         self.clipboard.set_text(text, -1)
         self.primary.set_text(text, -1)
         self._last_text = text
+        self._last_clipboard_text = text
 
     def get_text(self):
         text = self.clipboard.wait_for_text()
         if text:
             self._last_text = text
+            self._last_clipboard_text = text
         return text
