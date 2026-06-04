@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
 
+# Required so softprops/action-gh-release can create / update the GitHub Release
+# for the pushed tag. The default GITHUB_TOKEN is read-only on new repos.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
