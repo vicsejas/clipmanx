@@ -180,7 +180,15 @@ class ClipmanxApp:
             "toggled", lambda b: setattr(self.settings, "capture_primary", b.get_active())
         )
         box.pack_start(primary_check, False, False, 0)
-        _dbg("_show_settings: primary_check done, creating max_items hbox")
+        _dbg("_show_settings: primary_check done, creating ignore_terminals_check")
+
+        ignore_terminals_check = Gtk.CheckButton(label="Ignore copies from terminal apps")
+        ignore_terminals_check.set_active(self.settings.ignore_terminals)
+        ignore_terminals_check.connect(
+            "toggled",
+            lambda b: setattr(self.settings, "ignore_terminals", b.get_active()),
+        )
+        box.pack_start(ignore_terminals_check, False, False, 0)
 
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         _dbg("_show_settings: max hbox created")

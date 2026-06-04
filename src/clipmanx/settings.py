@@ -9,6 +9,7 @@ CONFIG_FILE = CONFIG_DIR / "settings.json"
 DEFAULTS = {
     "capture_clipboard": True,
     "capture_primary": False,
+    "ignore_terminals": True,
     "max_items": 50,
     "icon_theme": "auto",
     "tooltip_delay": 500,
@@ -50,6 +51,15 @@ class Settings:
     @capture_primary.setter
     def capture_primary(self, value: bool):
         self._values["capture_primary"] = bool(value)
+        self._save()
+
+    @property
+    def ignore_terminals(self) -> bool:
+        return self._values["ignore_terminals"]
+
+    @ignore_terminals.setter
+    def ignore_terminals(self, value: bool):
+        self._values["ignore_terminals"] = bool(value)
         self._save()
 
     @property
