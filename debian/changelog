@@ -1,3 +1,14 @@
+clipmanx (0.1.3) unstable; urgency=low
+
+  * Switched to native Debian source format so the package version matches the
+    git tag exactly (output is now clipmanx_0.1.3_all.deb, no -1 suffix)
+  * Standardised install path: download the .deb from GitHub Releases and run
+    apt-get install. The legacy install-latest.sh one-liner is no longer
+    documented.
+  * Cleaned up README and dropped the "early development" notice.
+
+ -- Victor Sejas <vrsejas@gmail.com>  Wed, 03 Jun 2026 23:12:40 -0400
+
 clipmanx (0.1.2) unstable; urgency=low
 
   * Fixed hover preview occupying the full screen and covering the list when

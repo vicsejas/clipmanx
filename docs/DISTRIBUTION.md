@@ -6,7 +6,7 @@ This document explains how Clipmanx is released via GitHub Releases.
 
 Clipmanx uses a **GitHub Actions + GitHub Releases** workflow:
 
-1. You push a git tag matching `v*` (e.g. `v0.1.2`)
+1. You push a git tag matching `v*` (e.g. `v0.1.3`)
 2. GitHub Actions builds the `.deb` package via `dpkg-buildpackage`
 3. The `.deb` is uploaded as an asset on the GitHub Release for that tag
 4. Users download the `.deb` from the Releases page and install it with apt
@@ -24,7 +24,7 @@ Clipmanx uses a **GitHub Actions + GitHub Releases** workflow:
 ```bash
 # Update version in pyproject.toml
 $EDITOR pyproject.toml
-# e.g. version = "0.1.2" → version = "0.1.3"
+# e.g. version = "0.1.3" → version = "0.1.4"
 
 # Prepend a new entry to debian/changelog (the format is strict — two spaces
 # before each '*', single space then '--' before the maintainer line,

@@ -59,9 +59,9 @@ This:
 
 Output files:
 ```
-build/clipmanx_0.1.2_all.deb    ← Install this
-build/clipmanx_0.1.2.changes    ← Metadata
-build/clipmanx_0.1.2.buildinfo  ← Build info
+build/clipmanx_0.1.3_all.deb    ← Install this
+build/clipmanx_0.1.3.changes    ← Metadata
+build/clipmanx_0.1.3.buildinfo  ← Build info
 ```
 
 ### Manual Build (Advanced)
