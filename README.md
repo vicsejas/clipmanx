@@ -17,15 +17,11 @@ A lightweight clipboard manager for Linux Mint featuring GTK3 system tray integr
 
 ## Installation
 
-### Quick Install (One-liner)
+Download the latest `.deb` from the [Releases page](https://github.com/vicsejas/clipmanx/releases) and install it:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/vicsejas/clipmanx/main/install-latest.sh | sudo bash
+sudo apt-get install -y ./clipmanx_*_all.deb
 ```
-
-### Manual Install
-
-See [Installation Guide](docs/INSTALL.md) for detailed instructions.
 
 **System Requirements:**
 - Linux Mint 22.3+ (or Ubuntu 24.04+/Debian-based)
@@ -99,21 +95,12 @@ uv sync
 uv run clipmanx
 ```
 
-### Build .deb Package
+### Build .deb Package (optional)
 
-For building Debian packages:
-```bash
-sudo apt-get install debhelper-compat python3-setuptools python3-all pybuild-plugin-pyproject
-dpkg-buildpackage -us -uc -b
-```
-
-See [Build Guide](docs/BUILD_GUIDE.md) for detailed instructions.
-
-## Distribution
-
-Clipmanx is distributed via GitHub Releases with automatic `.deb` building.
-
-See [Distribution Guide](docs/DISTRIBUTION.md) for release workflow and instructions.
+Releases are built automatically by GitHub Actions on every `v*` tag push, so
+contributors don't need to build the `.deb` locally. If you want to anyway, see
+[Build Guide](docs/BUILD_GUIDE.md). For the release workflow itself, see
+[Distribution Guide](docs/DISTRIBUTION.md).
 
 ## Contributing
 

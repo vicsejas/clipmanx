@@ -2,6 +2,10 @@
 
 Guide for developers building from source for testing and development.
 
+> **Users:** you do not need to build anything. Download the prebuilt `.deb`
+> from the [Releases page](https://github.com/vicsejas/clipmanx/releases) — see
+> [INSTALL.md](INSTALL.md).
+
 ## Quick Start
 
 ```bash
@@ -16,7 +20,7 @@ bash build.sh
 # Install locally (script will suggest the command)
 ```
 
-For detailed installation instructions, see [INSTALL.md](INSTALL.md).
+For end-user installation (download the prebuilt `.deb`), see [INSTALL.md](INSTALL.md).
 
 ---
 
@@ -55,9 +59,9 @@ This:
 
 Output files:
 ```
-build/clipmanx_0.1.0-1_all.deb    ← Install this
-build/clipmanx_0.1.0-1.changes    ← Metadata
-build/clipmanx_0.1.0-1.buildinfo  ← Build info
+build/clipmanx_0.1.2_all.deb    ← Install this
+build/clipmanx_0.1.2.changes    ← Metadata
+build/clipmanx_0.1.2.buildinfo  ← Build info
 ```
 
 ### Manual Build (Advanced)
@@ -86,4 +90,4 @@ mv ../clipmanx_*.deb build/
 
 To create a GitHub release, see [DISTRIBUTION.md](DISTRIBUTION.md).
 
-**Last Updated**: May 21, 2026
+**Last Updated**: June 3, 2026

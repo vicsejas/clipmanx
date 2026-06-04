@@ -1,132 +1,75 @@
-# Installation Guide - Clipmanx
+# Installation
 
-Clipmanx is a lightweight clipboard manager for Linux Mint 22.3+ with GTK3 system tray integration.
+Clipmanx is distributed as a Debian package built by CI on every `v*` tag.
 
-## Quick Install (Recommended)
+## Install
 
-For **Linux Mint 22.3+, Ubuntu, and Debian-based systems**:
+1. Download the latest `clipmanx_*_all.deb` from the
+   [Releases page](https://github.com/vicsejas/clipmanx/releases).
+2. Install it (apt resolves the GTK runtime dependencies for you):
 
-```bash
-curl -sSL https://raw.githubusercontent.com/vicsejas/clipmanx/main/install-latest.sh | sudo bash
-```
-
-Or manually download and run:
-
-```bash
-sudo bash install-latest.sh
-```
-
-## Manual Installation
-
-### Option 1: Install from Pre-built .deb (Easiest)
-
-1. Download the latest `.deb` file from [GitHub Releases](https://github.com/vicsejas/clipmanx/releases)
-2. Install it:
    ```bash
-   sudo apt-get install -y ./clipmanx_0.1.0-1_all.deb
+   sudo apt-get install -y ./clipmanx_*_all.deb
    ```
-
-### Option 2: Build from Source
-
-Requirements:
-- `python3.10+`
-- `python3-gi`
-- `gir1.2-gtk-3.0`
-- `debhelper-compat`
-- `python3-setuptools`
-- `pybuild-plugin-pyproject`
-
-Steps:
-```bash
-# Clone the repository
-git clone https://github.com/vicsejas/clipmanx.git
-cd clipmanx
-
-# Install build dependencies
-sudo apt-get install debhelper-compat python3-setuptools python3-all pybuild-plugin-pyproject python3-gi gir1.2-gtk-3.0
-
-# Build the .deb package
-dpkg-buildpackage -us -uc -b
-
-# Install the built package (with dependency handling)
-cd ..
-sudo apt-get install -y ./clipmanx_*.deb
-```
-
-For detailed build instructions, see [BUILD_GUIDE.md](BUILD_GUIDE.md).
 
 ## System Requirements
 
-- **OS**: Linux Mint 22.3+ (or any Debian/Ubuntu-based system)
-- **Python**: 3.10 or later
-- **GTK**: 3.0
-- **Dependencies**: 
-  - `python3-gi`
-  - `gir1.2-gtk-3.0`
+- **OS**: Linux Mint 22.3+ (or any Debian/Ubuntu-based system with GTK 3)
+- **Python**: 3.10+ (pulled in by the package as `python3-gi` + `gir1.2-gtk-3.0`)
 
 ## First Launch
 
-After installation, you can launch Clipmanx by:
+After installation, launch Clipmanx by:
 
 - **Terminal**: `clipmanx`
-- **Applications Menu**: Search for "Clipmanx"
-- **System Tray**: The app appears in the system tray once started
+- **Applications Menu**: search for "Clipmanx"
+- **System Tray**: the icon appears once started
 
 ## Configuration
 
-Settings are stored in `~/.config/clipmanx/settings.json`
+Settings are stored at `~/.config/clipmanx/settings.json`. Editable via the
+Settings UI (click the tray icon → **Settings**). Available keys:
 
-Available settings:
-- `capture_clipboard`: Capture Ctrl+C clipboard events (default: true)
-- `capture_primary`: Capture PRIMARY selection (xselection) (default: true)
-- `max_items`: Maximum history items to store (default: 50)
+- `capture_clipboard` — capture Ctrl+C events (default: `true`)
+- `capture_primary` — capture PRIMARY selection / xselect (default: `false`)
+- `ignore_terminals` — drop copies whose source window is a terminal (default: `true`)
+- `max_items` — maximum history entries (default: `50`)
+- `icon_theme` — `auto`, `light`, `dark` (default: `auto`)
+- `tooltip_delay` — milliseconds before tooltips appear (default: `500`)
 
 ## Uninstall
 
 ```bash
-sudo apt-get remove clipmanx
-```
-
-To also remove configuration files:
-```bash
-sudo apt-get remove --purge clipmanx
-rm -rf ~/.config/clipmanx
+sudo apt-get remove clipmanx        # keep config
+sudo apt-get purge clipmanx         # also remove config
+rm -rf ~/.config/clipmanx           # also remove per-user settings
 ```
 
 ## Troubleshooting
 
-### Icon not showing in system tray
-- Ensure your system has a tray-capable panel (MATE Panel works well on Linux Mint)
-- Try restarting the application: `killall clipmanx && clipmanx`
+**Icon not showing in system tray**
+Ensure your panel supports a status-icon tray (MATE Panel / Cinnamon panel
+work). Restart the app: `pkill -f bin/clipmanx && clipmanx`.
 
-### Clipboard not capturing
-- Ensure both "Capture system clipboard" and "Capture selection" are enabled in settings
-- Check that your clipboard manager isn't conflicting (e.g., with `xclip`)
+**Nothing happens on tray click**
+A stale background instance from a previous run may be holding the
+single-instance socket. Kill it and relaunch:
 
-### Dependencies missing error
-Run: `sudo apt-get install python3-gi gir1.2-gtk-3.0`
+```bash
+pkill -f bin/clipmanx
+rm -f "${XDG_RUNTIME_DIR:-/tmp}"/clipmanx.sock
+clipmanx
+```
 
-## Building Releases
+**Run in foreground to see logs**
 
-### For Maintainers
+```bash
+clipmanx --debug
+```
 
-Create a new release with automatic .deb building:
-
-1. Update version in `pyproject.toml`
-2. Commit changes
-3. Create a git tag:
-   ```bash
-   git tag -a v0.1.0 -m "Release version 0.1.0"
-   git push origin v0.1.0
-   ```
-4. GitHub Actions automatically builds and uploads the `.deb` to releases
+Debug output is written to `log.txt` next to the project root, and faults are
+captured in `crash.log`.
 
 ## Support
 
-- **Issues**: https://github.com/vicsejas/clipmanx/issues
-- **Discussions**: https://github.com/vicsejas/clipmanx/discussions
-
----
-
-**Last Updated**: May 2026
-**Supported**: Linux Mint 22.3+
+- Issues: https://github.com/vicsejas/clipmanx/issues

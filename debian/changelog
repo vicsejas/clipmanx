@@ -1,4 +1,4 @@
-clipmanx (0.1.2-1) unstable; urgency=low
+clipmanx (0.1.2) unstable; urgency=low
 
   * Fixed hover preview occupying the full screen and covering the list when
     the clipboard entry was very tall (compute size from the larger free side
@@ -9,7 +9,7 @@ clipmanx (0.1.2-1) unstable; urgency=low
 
  -- Victor Sejas <vrsejas@gmail.com>  Wed, 03 Jun 2026 22:49:37 -0400
 
-clipmanx (0.1.1-1) unstable; urgency=low
+clipmanx (0.1.1) unstable; urgency=low
 
   * Unified left- and right-click tray behaviour into a single full-view popup
   * Scrollable hover preview with 800 ms delay and Pango-measured height
@@ -21,7 +21,7 @@ clipmanx (0.1.1-1) unstable; urgency=low
 
  -- Victor Sejas <vrsejas@gmail.com>  Wed, 03 Jun 2026 22:16:22 -0400
 
-clipmanx (0.1.0-1) unstable; urgency=low
+clipmanx (0.1.0) unstable; urgency=low
 
   * Initial release
 

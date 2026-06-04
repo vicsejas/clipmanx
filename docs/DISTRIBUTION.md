@@ -1,21 +1,21 @@
 # Distribution & Release Guide
 
-This document explains how to distribute Clipmanx via GitHub Releases.
+This document explains how Clipmanx is released via GitHub Releases.
 
 ## Overview
 
 Clipmanx uses a **GitHub Actions + GitHub Releases** workflow:
 
-1. **You push a git tag** (e.g., `v0.1.0`)
-2. **GitHub Actions automatically builds** the `.deb` package
-3. **The `.deb` is uploaded** to GitHub Releases
-4. **Users download and install** via the installer script or manual download
+1. You push a git tag matching `v*` (e.g. `v0.1.2`)
+2. GitHub Actions builds the `.deb` package via `dpkg-buildpackage`
+3. The `.deb` is uploaded as an asset on the GitHub Release for that tag
+4. Users download the `.deb` from the Releases page and install it with apt
 
 ## Prerequisites
 
-1. GitHub repository initialized (`git remote add origin ...`)
-2. Repository pushed to GitHub
-3. GitHub Actions enabled (default for public repos)
+- The repo is pushed to GitHub
+- GitHub Actions is enabled (default for public repos)
+- The workflow has `permissions: contents: write` so it can create releases
 
 ## Release Checklist
 
@@ -23,156 +23,118 @@ Clipmanx uses a **GitHub Actions + GitHub Releases** workflow:
 
 ```bash
 # Update version in pyproject.toml
-nano pyproject.toml
-# Change: version = "0.1.0" → version = "0.2.0"
+$EDITOR pyproject.toml
+# e.g. version = "0.1.2" → version = "0.1.3"
 
-# Update debian/changelog
-nano debian/changelog
-# Add new entry at top with current date
+# Prepend a new entry to debian/changelog (the format is strict — two spaces
+# before each '*', single space then '--' before the maintainer line,
+# RFC 5322 date from `date -R`)
+$EDITOR debian/changelog
 
-# Commit
-git add pyproject.toml debian/changelog
-git commit -m "Bump version to 0.2.0"
+# Sync uv.lock to the new version
+uv lock
+
+# Commit the release bump
+git add pyproject.toml debian/changelog uv.lock
+git commit -m "Release v0.1.3"
 ```
 
-### 2. Create Release Tag
+### 2. Tag and Push
 
 ```bash
-git tag -a v0.2.0 -m "Release version 0.2.0"
+git tag v0.1.3
 git push origin main
-git push origin v0.2.0
+git push origin v0.1.3
 ```
 
-### 3. Wait for GitHub Actions
+### 3. Watch the Workflow
 
-- Go to: https://github.com/vicsejas/clipmanx/actions
-- Watch the "Build .deb Package" workflow complete
-- The `.deb` file will be automatically attached to the release
+- Open https://github.com/vicsejas/clipmanx/actions
+- The "Build .deb Package" run for the new tag should succeed
+- The `.deb` is automatically attached to the release
 
 ### 4. Verify Release
 
-- Visit: https://github.com/vicsejas/clipmanx/releases
-- Check that `.deb` file is attached
-- Edit release notes if needed
+- Open https://github.com/vicsejas/clipmanx/releases
+- Confirm `clipmanx_0.1.3_all.deb` is attached
+- Edit the release notes from the auto-generated draft if desired
 
-## File Structure for Distribution
+## Install Path for Users
 
-When users download from GitHub Releases, they get:
+Users grab the `.deb` from the Releases page and install with apt
+(which resolves the GTK runtime dependencies for them):
 
+```bash
+sudo apt-get install -y ./clipmanx_*_all.deb
 ```
-clipmanx_0.2.0-1_all.deb  ← Pre-built package
-```
 
-Users can then either:
-1. **One-line install** (downloads `.deb` from release):
-   ```bash
-   curl -sSL https://raw.githubusercontent.com/vicsejas/clipmanx/main/install-latest.sh | sudo bash
-   ```
-
-2. **Manual install**:
-   - Download `.deb` from releases page
-   - Run: `sudo apt-get install -y ./clipmanx_*.deb`
+This is the **only** supported install path. The legacy `install-latest.sh`
+one-liner is no longer documented.
 
 ## Debian Package Contents
 
-The built `.deb` includes:
-
 ```
-/usr/bin/clipmanx                                  → Executable
-/usr/lib/python3/dist-packages/clipmanx/          → Python package
-/usr/share/applications/clipmanx.desktop          → Desktop entry
-/usr/share/pixmaps/clipmanx.png                   → App logo
+/usr/bin/clipmanx                          → executable entry point
+/usr/lib/python3/dist-packages/clipmanx/   → Python package
+/usr/share/applications/clipmanx.desktop   → desktop entry
+/usr/share/pixmaps/clipmanx.png            → app icon
 ```
 
-## System-Wide Installation
+System-wide install; per-user config lives at `~/.config/clipmanx/settings.json`.
 
-The `.deb` package is installed system-wide:
+## Workflow File
 
-- **Binary location**: `/usr/bin/clipmanx` (available to all users)
-- **Config location**: `~/.config/clipmanx/settings.json` (per-user)
-- **Autostart**: Desktop entry in `/usr/share/applications/`
-
-All users on the system can access the app after installation.
-
-## Updating GitHub Actions Workflow
-
-To change build settings, edit `.github/workflows/build-deb.yml`:
+The release workflow lives at [`.github/workflows/build-deb.yml`](../.github/workflows/build-deb.yml).
+Key knobs:
 
 ```yaml
-# Triggered on any tag push starting with 'v'
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
 
-# Builds on Ubuntu 24.04 (closest to Linux Mint)
-runs-on: ubuntu-24.04
+permissions:
+  contents: write          # required to create the GitHub release
 
-# Auto-uploads .deb to GitHub Releases
+jobs:
+  build:
+    runs-on: ubuntu-24.04  # closest match to Linux Mint 22.x
 ```
 
-## Development Workflow
+## Re-tagging After a Workflow Fix
 
-When developing locally:
+If the workflow fails (broken pinned action SHA, missing apt dependency,
+etc.) and the fix is on `main` but the tag still points to the broken
+commit, force-move the tag — releases that have never produced an asset are
+safe to overwrite:
+
 ```bash
-uv sync          # Install dependencies
-uv run clipmanx   # Run the app
+git tag -f v0.1.3
+git push -f origin v0.1.3
 ```
 
 ## Post-Release
 
-After a successful release:
-
-1. **Announce** on any channels (Reddit, forums, etc.)
-2. **Update docs** if behavior changed
-3. **Monitor issues** for user feedback
-4. **Plan next release** based on feedback
+1. Announce on relevant channels
+2. Update docs if behavior changed
+3. Monitor issues for user feedback
 
 ## Troubleshooting Builds
 
-### Build failed in GitHub Actions
-- Check workflow logs: https://github.com/vicsejas/clipmanx/actions
-- Common issues:
-  - Missing dependencies in `Build-Depends` (debian/control)
-  - Syntax errors in debian/rules
-  - File paths incorrect
+Check the workflow logs at https://github.com/vicsejas/clipmanx/actions.
+Recurring causes:
 
-### Fix and retry
-```bash
-# Fix the issue in debian/ files
-git add debian/
-git commit -m "Fix build config"
+- Missing `Build-Depends` in `debian/control`
+- Pinned third-party action SHA that doesn't resolve (use a real SHA or a
+  `@v2`-style tag)
+- Missing `permissions: contents: write` (causes 403 on release upload)
 
-# Delete old tag
-git tag -d v0.2.0
-git push origin :refs/tags/v0.2.0
+## Alternative Distribution Methods (Future)
 
-# Re-tag and push
-git tag -a v0.2.0 -m "Release version 0.2.0"
-git push origin v0.2.0
-```
+Out of scope today but worth knowing about:
 
-## Alternative Distribution Methods
+- **APT repository** — host your own Debian repo (needs hosting + GPG signing)
+- **Ubuntu Universe** — go through Debian/Ubuntu maintainer sponsorship
+- **AppImage** — distribution-agnostic single-file bundle
+- **Snap / Flatpak** — universal Linux packages
 
-### 1. Create APT Repository (Advanced)
-Host your own Debian repository so users can:
-```bash
-apt-get install clipmanx
-```
-Requires: server hosting, GPG signing, repo management
-
-### 2. Publish to Ubuntu Universe
-Get into official Ubuntu/Debian repositories. Requires:
-- Package sponsorship
-- Compliance with Debian policy
-- Ongoing maintenance
-
-### 3. AppImage (More Portable)
-Works on any Linux distro, not Debian-specific. Requires PyAppImage tools.
-
-### 4. Snap Package
-Universal Linux package. `snap install clipmanx`
-
----
-
-For now, **GitHub Releases** is the easiest approach and gives users a simple one-line install.
+For now, GitHub Releases serving `.deb`s is the simplest model.
