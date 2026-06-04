@@ -122,18 +122,20 @@ MIT License - See LICENSE file for details
 
 ## Troubleshooting
 
-**Icon not showing?**
-```bash
-killall clipmanx && clipmanx
-```
+**Icon not showing or tray click does nothing?**
+A stale background instance may be holding the single-instance socket.
+Stop the old process, clear the socket, then relaunch:
 
-**Dependencies missing?**
 ```bash
-sudo apt-get install python3-gi gir1.2-gtk-3.0
+pkill -f bin/clipmanx
+rm -f "${XDG_RUNTIME_DIR:-/tmp}"/clipmanx.sock
+clipmanx
 ```
 
 **Can't capture clipboard?**
-Check Settings to ensure capture is enabled.
+Click the tray icon → Settings and ensure capture is enabled.
+
+See [INSTALL.md](docs/INSTALL.md#troubleshooting) for more.
 
 ---
 
