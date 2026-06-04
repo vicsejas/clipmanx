@@ -8,7 +8,7 @@ CONFIG_FILE = CONFIG_DIR / "settings.json"
 
 DEFAULTS = {
     "capture_clipboard": True,
-    "capture_primary": True,
+    "capture_primary": False,
     "max_items": 50,
     "icon_theme": "auto",
     "tooltip_delay": 500,

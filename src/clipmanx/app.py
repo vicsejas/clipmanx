@@ -332,10 +332,19 @@ class ClipmanxApp:
             ),
         )
         # Scrollable hover preview (replaces the non-scrollable GTK tooltip)
-        listbox.add_events(Gdk.EventMask.POINTER_MOTION_MASK)
+        listbox.add_events(
+            Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK
+        )
         listbox.connect(
             "motion-notify-event",
             lambda lb, ev, _items=items: self._on_list_motion(lb, ev, _items, win),
+        )
+        # Cancel a pending (not-yet-shown) preview when the pointer leaves the
+        # list, so a preview never appears after the user has moved away. An
+        # already-shown preview is left alone so it remains scrollable.
+        listbox.connect(
+            "leave-notify-event",
+            lambda _w, _e: (self._cancel_pending_preview(), False)[1],
         )
         scroll.add(listbox)
         outer.pack_start(scroll, True, True, 0)
@@ -376,17 +385,56 @@ class ClipmanxApp:
         win.destroy()
         self._copy_to_clipboard(text)
 
+    PREVIEW_DELAY_MS = 800
+
     def _on_list_motion(self, listbox, event, items, win):
-        """Show a scrollable preview of the row under the pointer."""
+        """Schedule a delayed preview of the row under the pointer."""
         row = listbox.get_row_at_y(int(event.y))
         if row is None:
             return False
         idx = row.get_index()
-        if 0 <= idx < len(items):
-            self._show_row_preview(items[idx], row, win)
+        if not (0 <= idx < len(items)):
+            return False
+        text = items[idx]
+        # Same row already shown or already pending: nothing to do.
+        if getattr(self, "_row_preview_text", None) == text:
+            return False
+        if getattr(self, "_pending_preview_text", None) == text:
+            return False
+        # New target: tear down any current preview/pending and schedule a fresh
+        # show after PREVIEW_DELAY_MS.
+        self._hide_row_preview()
+        self._pending_preview_text = text
+        self._pending_preview_row = row
+        self._pending_preview_win = win
+        self._pending_preview_id = GLib.timeout_add(
+            self.PREVIEW_DELAY_MS, self._fire_pending_preview
+        )
         return False
 
+    def _fire_pending_preview(self):
+        text = getattr(self, "_pending_preview_text", None)
+        row = getattr(self, "_pending_preview_row", None)
+        win = getattr(self, "_pending_preview_win", None)
+        self._pending_preview_id = None
+        self._pending_preview_text = None
+        self._pending_preview_row = None
+        self._pending_preview_win = None
+        if text and row is not None and win is not None:
+            self._show_row_preview(text, row, win)
+        return False  # one-shot
+
+    def _cancel_pending_preview(self):
+        pid = getattr(self, "_pending_preview_id", None)
+        if pid:
+            GLib.source_remove(pid)
+        self._pending_preview_id = None
+        self._pending_preview_text = None
+        self._pending_preview_row = None
+        self._pending_preview_win = None
+
     def _hide_row_preview(self):
+        self._cancel_pending_preview()
         pop = getattr(self, "_row_preview", None)
         if pop is not None:
             pop.destroy()
