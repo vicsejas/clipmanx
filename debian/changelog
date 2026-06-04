@@ -1,3 +1,15 @@
+clipmanx (0.1.1-1) unstable; urgency=low
+
+  * Unified left- and right-click tray behaviour into a single full-view popup
+  * Scrollable hover preview with 800 ms delay and Pango-measured height
+  * Disabled PRIMARY-selection capture by default
+  * Skip clipboard captures whose source window is a terminal emulator
+  * Fixed startup deadlock by forking before importing GTK
+  * Added tooltip-delay setting and renamed debug logging module to logger
+  * Added unit tests for history, settings, and terminal-window detection
+
+ -- Victor Sejas <vrsejas@gmail.com>  Wed, 03 Jun 2026 22:16:22 -0400
+
 clipmanx (0.1.0-1) unstable; urgency=low
 
   * Initial release
