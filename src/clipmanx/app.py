@@ -72,6 +72,7 @@ class ClipmanxApp:
 
         _dbg("app.__init__: _setup_tray")
         self._setup_tray(self.settings.icon_theme)
+        self._connect_theme_change_signals()
 
         _dbg("app.__init__: ClipboardMonitor")
         self.monitor = ClipboardMonitor(on_change=self._on_clipboard_change, settings=self.settings)
@@ -121,6 +122,19 @@ class ClipmanxApp:
         self.tray.connect("activate", self._show_full_view)
         self.tray.connect("popup-menu", lambda icon, _button, _time: self._show_full_view(icon))
         _dbg("_setup_tray: done")
+
+    def _connect_theme_change_signals(self):
+        """React to live system theme changes so the "auto" tray icon stays in sync."""
+        gtk_settings = Gtk.Settings.get_default()
+        if gtk_settings is None:
+            return
+        gtk_settings.connect("notify::gtk-theme-name", self._on_system_theme_changed)
+        gtk_settings.connect("notify::gtk-application-prefer-dark-theme", self._on_system_theme_changed)
+
+    def _on_system_theme_changed(self, *_args):
+        if self.settings.icon_theme == "auto":
+            _dbg("_on_system_theme_changed: refreshing auto tray icon")
+            self._setup_tray("auto")
 
     def _on_clipboard_change(self, text: str):
         if not text:
