@@ -12,42 +12,26 @@ from .clipboard import ClipboardMonitor
 from .logger import debug as _dbg
 from .history import History
 from .settings import Settings
+from .theme import ThemeWatcher
 
 FALLBACK_ICON_NAME = "edit-paste"
 
 
-def _create_theme_adapted_icon(icon_theme: str) -> Gtk.StatusIcon:
-    """Create status icon based on theme setting.
+def _apply_theme_icon(tray: Gtk.StatusIcon, use_dark: bool):
+    """Set the tray image to the shade that contrasts with the desktop theme.
 
     Icon is from Lucide (https://lucide.dev) under MIT license.
-
-    Args:
-        icon_theme: "auto", "light", or "dark"
     """
-    assets_dir = Path(__file__).parent / "assets"
-    fallback = Gtk.StatusIcon.new_from_icon_name(FALLBACK_ICON_NAME)
-
-    if icon_theme == "auto":
-        gtk_settings = Gtk.Settings.get_default()
-        if gtk_settings is None:
-            use_dark = False
-        else:
-            theme_name = gtk_settings.get_property("gtk-theme-name") or ""
-            prefer_dark = gtk_settings.get_property("gtk-application-prefer-dark-theme")
-            use_dark = prefer_dark or "dark" in theme_name.lower()
-    else:
-        use_dark = icon_theme == "dark"
-
     icon_file = "icon-white.svg" if use_dark else "icon-black.svg"
-    icon_path = assets_dir / icon_file
+    icon_path = Path(__file__).parent / "assets" / icon_file
 
-    if not icon_path.exists():
-        return fallback
-
-    try:
-        return Gtk.StatusIcon.new_from_file(str(icon_path))
-    except Exception:
-        return fallback
+    if icon_path.exists():
+        try:
+            tray.set_from_file(str(icon_path))
+            return
+        except Exception:
+            pass
+    tray.set_from_icon_name(FALLBACK_ICON_NAME)
 
 
 def truncate(text: str, max_len: int = 60) -> str:
@@ -71,8 +55,8 @@ class ClipmanxApp:
         self._apply_tooltip_delay(self.settings.tooltip_delay)
 
         _dbg("app.__init__: _setup_tray")
-        self._setup_tray(self.settings.icon_theme)
-        self._connect_theme_change_signals()
+        self._theme_watcher = ThemeWatcher(on_change=self._on_system_theme_changed)
+        self._setup_tray()
 
         _dbg("app.__init__: ClipboardMonitor")
         self.monitor = ClipboardMonitor(on_change=self._on_clipboard_change, settings=self.settings)
@@ -109,12 +93,11 @@ class ClipmanxApp:
         except Exception:
             pass
 
-    def _setup_tray(self, theme: str):
+    def _setup_tray(self):
         """Create and configure system tray icon with theme-aware styling."""
-        _dbg("_setup_tray: theme=%s", theme)
-        if self.tray is not None:
-            self.tray.set_visible(False)
-        self.tray = _create_theme_adapted_icon(theme)
+        _dbg("_setup_tray: theme=%s", self.settings.icon_theme)
+        self.tray = Gtk.StatusIcon()
+        self._update_tray_icon()
         self.tray.set_tooltip_text("Clipmanx")
         self.tray.set_visible(True)
         # Both left-click (activate) and right-click (popup-menu) open the
@@ -123,18 +106,16 @@ class ClipmanxApp:
         self.tray.connect("popup-menu", lambda icon, _button, _time: self._show_full_view(icon))
         _dbg("_setup_tray: done")
 
-    def _connect_theme_change_signals(self):
-        """React to live system theme changes so the "auto" tray icon stays in sync."""
-        gtk_settings = Gtk.Settings.get_default()
-        if gtk_settings is None:
-            return
-        gtk_settings.connect("notify::gtk-theme-name", self._on_system_theme_changed)
-        gtk_settings.connect("notify::gtk-application-prefer-dark-theme", self._on_system_theme_changed)
+    def _update_tray_icon(self):
+        """Swap the tray image in place to match the icon theme setting."""
+        theme = self.settings.icon_theme
+        use_dark = self._theme_watcher.is_dark if theme == "auto" else theme == "dark"
+        _apply_theme_icon(self.tray, use_dark)
 
-    def _on_system_theme_changed(self, *_args):
+    def _on_system_theme_changed(self, is_dark: bool):
         if self.settings.icon_theme == "auto":
-            _dbg("_on_system_theme_changed: refreshing auto tray icon")
-            self._setup_tray("auto")
+            _dbg("_on_system_theme_changed: is_dark=%s, refreshing tray icon", is_dark)
+            self._update_tray_icon()
 
     def _on_clipboard_change(self, text: str):
         if not text:
@@ -230,9 +211,9 @@ class ClipmanxApp:
         theme_hbox.pack_start(theme_label, False, False, 0)
         theme_combo = Gtk.ComboBoxText()
         _dbg("_show_settings: theme combo created")
-        theme_combo.append("auto", "Auto Detect")
         theme_combo.append("light", "Light")
         theme_combo.append("dark", "Dark")
+        theme_combo.append("auto", "System")
         _dbg("_show_settings: theme combo appends done")
         theme_combo.set_active_id(self.settings.icon_theme)
         _dbg("_show_settings: theme combo active set")
@@ -278,7 +259,7 @@ class ClipmanxApp:
         theme = combo.get_active_id()
         if theme:
             self.settings.icon_theme = theme
-            self._setup_tray(theme)
+            self._update_tray_icon()
 
     def _apply_tooltip_delay(self, delay_ms: int):
         gtk_settings = Gtk.Settings.get_default()
