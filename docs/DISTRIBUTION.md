@@ -36,15 +36,15 @@ uv lock
 
 # Commit the release bump
 git add pyproject.toml debian/changelog uv.lock
-git commit -m "Release v0.1.3"
+git commit -m "Release v0.1.4"
 ```
 
 ### 2. Tag and Push
 
 ```bash
-git tag v0.1.3
+git tag v0.1.4
 git push origin main
-git push origin v0.1.3
+git push origin v0.1.4
 ```
 
 ### 3. Watch the Workflow
@@ -56,7 +56,7 @@ git push origin v0.1.3
 ### 4. Verify Release
 
 - Open https://github.com/vicsejas/clipmanx/releases
-- Confirm `clipmanx_0.1.3_all.deb` is attached
+- Confirm `clipmanx_0.1.4_all.deb` is attached
 - Edit the release notes from the auto-generated draft if desired
 
 ## Install Path for Users
@@ -108,8 +108,8 @@ commit, force-move the tag — releases that have never produced an asset are
 safe to overwrite:
 
 ```bash
-git tag -f v0.1.3
-git push -f origin v0.1.3
+git tag -f v0.1.4
+git push -f origin v0.1.4
 ```
 
 ## Post-Release

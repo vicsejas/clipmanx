@@ -2,7 +2,7 @@ Source: clipmanx
 Section: utils
 Priority: optional
 Maintainer: Victor Sejas <vrsejas@gmail.com>
-Build-Depends: debhelper-compat (= 13), python3-setuptools, python3-all, pybuild-plugin-pyproject
+Build-Depends: debhelper-compat (= 13), python3-setuptools, python3-all, pybuild-plugin-pyproject, python3-gi, gir1.2-gtk-3.0
 Standards-Version: 4.6.0
 Homepage: https://github.com/vicsejas/clipmanx
 
