@@ -4,8 +4,9 @@ import socket
 import threading
 
 gi.require_version("Gtk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
 
-from gi.repository import Gtk, Gdk, GLib, Pango
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
 from pathlib import Path
 
 from .clipboard import ClipboardMonitor
@@ -41,6 +42,12 @@ def truncate(text: str, max_len: int = 60) -> str:
     return text or "(empty)"
 
 
+def item_label(item: dict, max_len: int) -> str:
+    if item["type"] == "image":
+        return f"Image {item['width']}\u00d7{item['height']}"
+    return truncate(item["text"], max_len)
+
+
 class ClipmanxApp:
     def __init__(self, debug=False):
         self._debug = debug
@@ -59,10 +66,12 @@ class ClipmanxApp:
         self._setup_tray()
 
         _dbg("app.__init__: ClipboardMonitor")
-        self.monitor = ClipboardMonitor(on_change=self._on_clipboard_change, settings=self.settings)
-        existing = self.monitor.get_text()
-        if existing:
-            self.history.add(existing)
+        self.monitor = ClipboardMonitor(
+            on_text=self.history.add_text,
+            on_image=self.history.add_image,
+            settings=self.settings,
+        )
+        self.monitor.capture_current()
         _dbg("app.__init__: done")
 
     def _start_socket_server(self):
@@ -117,13 +126,20 @@ class ClipmanxApp:
             _dbg("_on_system_theme_changed: is_dark=%s, refreshing tray icon", is_dark)
             self._update_tray_icon()
 
-    def _on_clipboard_change(self, text: str):
-        if not text:
-            return
-        self.history.add(text)
+    def _copy_to_clipboard(self, item: dict):
+        if item["type"] == "image":
+            self.monitor.copy_image(self.history.image_path(item))
+        else:
+            self.monitor.copy_text(item["text"])
 
-    def _copy_to_clipboard(self, text: str):
-        self.monitor.copy(text)
+    def _load_pixbuf(self, item: dict, max_w: int, max_h: int):
+        """Load an image item scaled to fit max_w x max_h, or None if unreadable."""
+        try:
+            return GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                str(self.history.image_path(item)), max_w, max_h, True
+            )
+        except GLib.Error:
+            return None
 
     def _clear_history(self, _item=None):
         self.history.clear()
@@ -317,15 +333,21 @@ class ClipmanxApp:
             row.set_activatable(False)
             listbox.add(row)
         else:
-            for text in items:
+            for item in items:
                 row = Gtk.ListBoxRow()
-                lbl = Gtk.Label(label=truncate(text, 50))
+                content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                content.set_margin_start(12)
+                content.set_margin_end(12)
+                content.set_margin_top(5)
+                content.set_margin_bottom(5)
+                if item["type"] == "image":
+                    thumb = self._load_pixbuf(item, 32, 32)
+                    if thumb:
+                        content.pack_start(Gtk.Image.new_from_pixbuf(thumb), False, False, 0)
+                lbl = Gtk.Label(label=item_label(item, 50))
                 lbl.set_xalign(0)
-                lbl.set_margin_start(12)
-                lbl.set_margin_end(12)
-                lbl.set_margin_top(5)
-                lbl.set_margin_bottom(5)
-                row.add(lbl)
+                content.pack_start(lbl, True, True, 0)
+                row.add(content)
                 listbox.add(row)
 
         listbox.connect(
@@ -383,10 +405,10 @@ class ClipmanxApp:
         self._popup_window = win
         _dbg("_show_full_view: popup shown, _popup_window set")
 
-    def _copy_from_full_view(self, text: str, win: Gtk.Window):
-        _dbg("_copy_from_full_view: destroying popup, copying text")
+    def _copy_from_full_view(self, item: dict, win: Gtk.Window):
+        _dbg("_copy_from_full_view: destroying popup, copying item")
         win.destroy()
-        self._copy_to_clipboard(text)
+        self._copy_to_clipboard(item)
 
     PREVIEW_DELAY_MS = 800
 
@@ -398,16 +420,16 @@ class ClipmanxApp:
         idx = row.get_index()
         if not (0 <= idx < len(items)):
             return False
-        text = items[idx]
+        item = items[idx]
         # Same row already shown or already pending: nothing to do.
-        if getattr(self, "_row_preview_text", None) == text:
+        if getattr(self, "_row_preview_item", None) == item:
             return False
-        if getattr(self, "_pending_preview_text", None) == text:
+        if getattr(self, "_pending_preview_item", None) == item:
             return False
         # New target: tear down any current preview/pending and schedule a fresh
         # show after PREVIEW_DELAY_MS.
         self._hide_row_preview()
-        self._pending_preview_text = text
+        self._pending_preview_item = item
         self._pending_preview_row = row
         self._pending_preview_win = win
         self._pending_preview_id = GLib.timeout_add(
@@ -416,15 +438,15 @@ class ClipmanxApp:
         return False
 
     def _fire_pending_preview(self):
-        text = getattr(self, "_pending_preview_text", None)
+        item = getattr(self, "_pending_preview_item", None)
         row = getattr(self, "_pending_preview_row", None)
         win = getattr(self, "_pending_preview_win", None)
         self._pending_preview_id = None
-        self._pending_preview_text = None
+        self._pending_preview_item = None
         self._pending_preview_row = None
         self._pending_preview_win = None
-        if text and row is not None and win is not None:
-            self._show_row_preview(text, row, win)
+        if item and row is not None and win is not None:
+            self._show_row_preview(item, row, win)
         return False  # one-shot
 
     def _cancel_pending_preview(self):
@@ -432,7 +454,7 @@ class ClipmanxApp:
         if pid:
             GLib.source_remove(pid)
         self._pending_preview_id = None
-        self._pending_preview_text = None
+        self._pending_preview_item = None
         self._pending_preview_row = None
         self._pending_preview_win = None
 
@@ -442,15 +464,13 @@ class ClipmanxApp:
         if pop is not None:
             pop.destroy()
         self._row_preview = None
-        self._row_preview_text = None
+        self._row_preview_item = None
 
-    def _show_row_preview(self, text: str, row: Gtk.Widget, win: Gtk.Window):
+    def _show_row_preview(self, item: dict, row: Gtk.Widget, win: Gtk.Window):
         # Skip rebuilding while hovering within the same row
-        if getattr(self, "_row_preview", None) and getattr(self, "_row_preview_text", None) == text:
+        if getattr(self, "_row_preview", None) and getattr(self, "_row_preview_item", None) == item:
             return
         self._hide_row_preview()
-        if not text:
-            return
 
         # --- Geometry first: decide WHERE and HOW WIDE before building anything.
         display = Gdk.Display.get_default()
@@ -478,7 +498,37 @@ class ClipmanxApp:
         # never overlap the main window. 460 is the visual maximum.
         content_width = max(220, min(460, side_space - chrome_w))
 
-        # --- Build the popup with that locked width.
+        # --- Build the content at that locked width.
+        if item["type"] == "image":
+            pixbuf = self._load_pixbuf(item, max(1, content_width - 20), max(1, max_h - 20))
+            if pixbuf is None:
+                return
+            content_widget = Gtk.Image.new_from_pixbuf(pixbuf)
+            content_width = pixbuf.get_width() + 16
+            content_h = pixbuf.get_height() + 16
+            fits = True
+        else:
+            text = item["text"]
+            tv = Gtk.TextView()
+            tv.set_editable(False)
+            tv.set_cursor_visible(False)
+            tv.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+            tv.set_left_margin(8)
+            tv.set_right_margin(8)
+            tv.set_top_margin(8)
+            tv.set_bottom_margin(8)
+            tv.get_buffer().set_text(text)
+
+            # Pango-measured wrapped text height at the locked width.
+            layout = tv.create_pango_layout(text)
+            layout.set_width(max(1, content_width - 20) * Pango.SCALE)
+            layout.set_wrap(Pango.WrapMode.WORD_CHAR)
+            _tw, th = layout.get_pixel_size()
+            text_height = th + 16 + 8  # top/bottom margins + padding
+            fits = text_height <= max_h
+            content_h = text_height if fits else max_h
+            content_widget = tv
+
         pop = Gtk.Window(type=Gtk.WindowType.POPUP)
         pop.set_type_hint(Gdk.WindowTypeHint.TOOLTIP)
         pop.set_accept_focus(False)
@@ -490,25 +540,6 @@ class ClipmanxApp:
         frame.set_shadow_type(Gtk.ShadowType.OUT)
         pop.add(frame)
 
-        tv = Gtk.TextView()
-        tv.set_editable(False)
-        tv.set_cursor_visible(False)
-        tv.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        tv.set_left_margin(8)
-        tv.set_right_margin(8)
-        tv.set_top_margin(8)
-        tv.set_bottom_margin(8)
-        tv.get_buffer().set_text(text)
-
-        # Pango-measured wrapped text height at the locked width.
-        layout = tv.create_pango_layout(text)
-        layout.set_width(max(1, content_width - 20) * Pango.SCALE)
-        layout.set_wrap(Pango.WrapMode.WORD_CHAR)
-        _tw, th = layout.get_pixel_size()
-        text_height = th + 16 + 8  # top/bottom margins + padding
-        fits = text_height <= max_h
-        content_h = text_height if fits else max_h
-
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(
             Gtk.PolicyType.NEVER,
@@ -518,7 +549,7 @@ class ClipmanxApp:
         scroll.set_max_content_width(content_width)
         scroll.set_min_content_height(content_h)
         scroll.set_max_content_height(content_h)
-        scroll.add(tv)
+        scroll.add(content_widget)
         frame.add(scroll)
 
         # --- Deterministic size + position BEFORE show. get_size() on an
@@ -542,7 +573,7 @@ class ClipmanxApp:
         pop.show_all()
 
         self._row_preview = pop
-        self._row_preview_text = text
+        self._row_preview_item = item
 
     def _position_popup_near_tray(self, win: Gtk.Window):
         ok, _screen, area, _orient = self.tray.get_geometry()
@@ -579,44 +610,6 @@ class ClipmanxApp:
     def _quit(self, _item=None):
         _dbg("_quit: calling Gtk.main_quit")
         Gtk.main_quit()
-
-    def _on_popup_menu(self, _icon, button, time):
-        menu = self._build_menu()
-        menu.show_all()
-        menu.popup(None, None, Gtk.StatusIcon.position_menu, self.tray, button, time)
-
-    def _build_menu(self) -> Gtk.Menu:
-        menu = Gtk.Menu()
-        items = self.history.get_all()[: self.settings.max_items]
-
-        if not items:
-            item = Gtk.MenuItem(label="(no history)")
-            item.set_sensitive(False)
-            menu.append(item)
-        else:
-            for text in items:
-                label = truncate(text)
-                item = Gtk.MenuItem(label=label)
-                item.set_has_tooltip(True)
-                item.set_tooltip_text(text)
-                item.connect("activate", lambda _, t=text: self._copy_to_clipboard(t))
-                menu.append(item)
-
-        menu.append(Gtk.SeparatorMenuItem())
-
-        clear = Gtk.MenuItem(label="Clear History")
-        clear.connect("activate", self._clear_history)
-        menu.append(clear)
-
-        settings_item = Gtk.MenuItem(label="Settings")
-        settings_item.connect("activate", self._show_settings)
-        menu.append(settings_item)
-
-        quit_item = Gtk.MenuItem(label="Quit")
-        quit_item.connect("activate", self._quit)
-        menu.append(quit_item)
-
-        return menu
 
     def run(self):
         _dbg("run: starting socket server")
