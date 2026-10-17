@@ -6,7 +6,7 @@ A lightweight clipboard manager for Linux Mint featuring GTK3 system tray integr
 
 ## Features
 
-- **Clipboard History**: Stores and manages clipboard history
+- **Clipboard History**: Stores and manages text and image clipboard history
 - **System Tray Icon**: Adaptive icon (dark/light theme support)
 - **Lightweight**: Minimal dependencies, minimal resource usage
 - **Persistent**: Remembers clipboard history between sessions
