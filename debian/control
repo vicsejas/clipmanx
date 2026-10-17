@@ -8,7 +8,8 @@ Homepage: https://github.com/vicsejas/clipmanx
 
 Package: clipmanx
 Architecture: all
-Depends: ${python3:Depends}, ${misc:Depends}, python3-gi, gir1.2-gtk-3.0, gir1.2-gdkpixbuf-2.0Description: Lightweight clipboard manager for Linux
+Depends: ${python3:Depends}, ${misc:Depends}, python3-gi, gir1.2-gtk-3.0, gir1.2-gdkpixbuf-2.0
+Description: Lightweight clipboard manager for Linux
  Clipmanx is a lightweight GTK3-based clipboard manager that stores clipboard
  history and allows quick access to previous clipboard entries via a system
  tray icon. It automatically captures clipboard content and selections.
